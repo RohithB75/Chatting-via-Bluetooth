@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp-style Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #111b21;
+            color: #e9edef;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background-color: #202c33;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            height: 60px;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .header-info {
+            display: flex;
+            flex-direction: column;
+            margin-left: 15px;
+        }
+
+        .header h1 {
+            font-size: 16px;
+            color: #e9edef;
+        }
+
+        .status {
+            font-size: 13px;
+            color: #8696a0;
+        }
+
+        .container {
+            flex: 1;
+            background-color: #0b141a;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .chat-container {
+            max-width: 880px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            margin: 2px 0;
+            max-width: 65%;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.sent {
+            align-self: flex-end;
+        }
+
+        .message.received {
+            align-self: flex-start;
+        }
+
+        .message-bubble {
+            padding: 8px 12px;
+            border-radius: 7.5px;
+            font-size: 14.2px;
+            line-height: 1.4;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .sent .message-bubble {
+            background-color: #005c4b;
+            color: #e9edef;
+        }
+
+        .received .message-bubble {
+            background-color: #202c33;
+            color: #e9edef;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #8696a0;
+            margin-top: 4px;
+            align-self: flex-end;
+        }
+
+        .input-container {
+            background-color: #202c33;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        select, input, button {
+            background-color: #2a3942;
+            border: none;
+            color: #e9edef;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        select {
+            width: 120px;
+        }
+
+        input {
+            flex: 1;
+        }
+
+        button {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #374248;
+        }
+
+        button:disabled {
+            background-color: #202c33;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .status-alert {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .status-alert.success {
+            background-color: #00a884;
+        }
+
+        .status-alert.error {
+            background-color: #ea4335;
+        }
+
+        .status-alert.info {
+            background-color: #2a3942;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-info">
+            <h1>Bluetooth Chat</h1>
+            <div class="status">
+                Status: <span id="connection-status">Disconnected</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="chat-container" class="chat-container"></div>
+    </div>
+
+    <div class="input-container">
+        <div class="input-wrapper">
+            <select id="script_name">
+                <option value="">Select Role</option>
+                <option value="server">Server</option>
+                <option value="client">Client</option>
+            </select>
+            <input type="text" id="input_message" placeholder="Type a message" disabled>
+            <button id="start_btn" onclick="startScript()" class="btn start">Send</button>
+            <button id="stop_btn" onclick="stopScript()" class="btn stop" disabled>Disconnect</button>
+        </div>
+    </div>
+
+    <div id="status-alert" class="status-alert"></div>
+
+    <script>
+        function showStatus(message, type) {
+            const alert = document.getElementById('status-alert');
+            alert.textContent = message;
+            alert.className = `status-alert ${type}`;
+            alert.style.display = 'block';
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 3000);
+        }
+
+        function addMessage(text, isSent = true) {
+            if (!text || text.trim() === '') return;
+            
+            const container = document.getElementById('chat-container');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+            
+            const time = new Date().toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+            });
+            
+            messageDiv.innerHTML = `
+                <div class="message-bubble">${text}</div>
+                <div class="message-time">${time}</div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        let lastMessageTimestamp = 0;
+
+        function sendMessage(message) {
+            if (!message || message.trim() === '') return;
+            
+            fetch('/update_messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    is_sent: document.getElementById('script_name').value === 'client'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    addMessage(message, document.getElementById('script_name').value === 'client');
+                } else {
+                    showStatus('Failed to send message', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showStatus('Failed to send message', 'error');
+            });
+        }
+
+        function pollMessages() {
+            fetch('/update_messages', {
+                method: 'GET'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.messages && Array.isArray(data.messages)) {
+                    const newMessages = data.messages.filter(msg => msg.timestamp > lastMessageTimestamp);
+                    newMessages.forEach(msg => {
+                        addMessage(msg.text, msg.is_sent);
+                        lastMessageTimestamp = Math.max(lastMessageTimestamp, msg.timestamp);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        setInterval(pollMessages, 1000);
+
+        async function startScript() {
+            const scriptName = document.getElementById('script_name').value;
+            const inputMessage = document.getElementById('input_message');
+            const message = inputMessage.value.trim();
+
+            if (!scriptName) {
+                showStatus('Please select a role (Server or Client)', 'error');
+                return;
+            }
+
+            if (message) {
+                sendMessage(message);
+                inputMessage.value = '';
+            }
+
+            if (document.getElementById('start_btn').textContent === 'Send') {
+                return;
+            }
+
+            try {
+                const response = await fetch('/run_script', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `script_name=${scriptName}&input_message=${message}`
+                });
+                
+                const data = await response.json();
+                if (data.status === 'success') {
+                    document.getElementById('start_btn').textContent = 'Send';
+                    document.getElementById('stop_btn').disabled = false;
+                    document.getElementById('connection-status').textContent = 'Connected';
+                    document.getElementById('input_message').disabled = false;
+                }
+                showStatus(data.message, data.status);
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Failed to start script', 'error');
+            }
+        }
+
+        async function stopScript() {
+            const scriptName = document.getElementById('script_name').value;
+            
+            try {
+                const response = await fetch('/stop_script', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `script_name=${scriptName}`
+                });
+                
+                const data = await response.json();
+                showStatus(data.message, data.status);
+                
+                if (data.status === 'success') {
+                    document.getElementById('start_btn').textContent = 'Start';
+                    document.getElementById('stop_btn').disabled = true;
+                    document.getElementById('connection-status').textContent = 'Disconnected';
+                    document.getElementById('input_message').disabled = true;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Failed to stop script', 'error');
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('script_name').addEventListener('change', function() {
+            const inputMessage = document.getElementById('input_message');
+            const startBtn = document.getElementById('start_btn');
+            
+            if (this.value) {
+                startBtn.textContent = 'Start';
+                inputMessage.disabled = true;
+                inputMessage.value = '';
+            } else {
+                startBtn.disabled = true;
+            }
+        });
+
+        document.getElementById('input_message').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey && !this.disabled) {
+                e.preventDefault();
+                startScript();
+            }
+        });
+
+        // Initial state
+        document.getElementById('input_message').disabled = true;
+    </script>
+</body>
+</html>
