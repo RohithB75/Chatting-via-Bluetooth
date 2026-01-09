@@ -25,7 +25,7 @@ def send_message(client_socket, message):
 
 client = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
 print("Connecting to server...")
-client.connect(("A8:7E:EA:F6:52:A6", 6))
+client.connect((" ", 6)) #The same MAC address is used to initiates the connection.
 print("Connected to server!")
 
 # Start receive thread
