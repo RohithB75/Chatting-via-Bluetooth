@@ -24,7 +24,7 @@ def send_message(client_socket, message):
         print(f"Error sending: {e}")
 
 server = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-server.bind(("A8:7E:EA:F6:52:A6", 6))
+server.bind((" ", 6)) #add the MAC address of the client
 server.listen(1)
 print("Server is listening...")
 client, addr = server.accept()
